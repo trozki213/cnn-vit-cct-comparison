@@ -1,0 +1,30 @@
+# ───────────────────────── Dataset ─────────────────────────
+# CIFAR-10 raw archive is too large for GitHub (163 MB > 100 MB limit).
+# Downloaded automatically by torchvision on first run.
+dataset/cifar-10-python.tar.gz
+dataset/cifar-10-batches-py/
+
+# ─────────────────────── Python / Jupyter ──────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+*.egg-info/
+
+# ────────────────────────── macOS ──────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ───────────────────── Editors / IDE ───────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ────────────────────── Local venvs ────────────────────────
+venv/
+.venv/
+env/
+.env
