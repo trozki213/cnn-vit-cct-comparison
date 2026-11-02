@@ -1,105 +1,87 @@
 # Inductive Bias under Data Scarcity
 
-**A parameter-matched comparison of CNN, ViT, and CCT architectures on CIFAR-10.**
+**A parameter-matched comparison of CNN, Vision Transformer and Compact Convolutional Transformer architectures on CIFAR-10.**
 
-Course project for *30562 — Machine Learning and Artificial Intelligence*, Bocconi University.
+Course project for *30562 Machine Learning and Artificial Intelligence*, Bocconi University (2026) · [Full report (PDF)](report.pdf)
 
-## Abstract
-Determining how architectural choices govern sample efficiency is a central challenge in scaling vision models to data-scarce regimes. We address this through a comparison of three architectures with matched parameter counts: a ResNet-style Convolutional Neural Network (CNN), a Vision Transformer (ViT), and a Compact Convolutional Transformer (CCT), trained on CIFAR-10 across five data fractions and two parameter regimes. Beyond accuracy, we examine internal representations using Centered Kernel Alignment (CKA), linear probing and mean attention distance. At matched 5M parameters, the CNN outperforms the ViT at every fraction, while at 0.75M parameters the CCT closes the gap, marginally surpassing it at full data. This advantage becomes even more pronounced in the absence of augmentation. Our central finding concerns data augmentation: contrary to the standard prediction that ViTs benefit most, the CNN gains substantially more from random crop and flip at low data, with the ranking reversing at higher fractions. We propose a mechanistic account: augmentation acts as a signal amplifier at low data and as a regularizer at high data. The CCT remains independent of augmentation throughout, as its convolutional tokenizer pre-encodes the relevant invariances.
+<p align="center">
+  <img src="assets/accuracy_vs_data_5M.png" width="640" alt="Test accuracy versus training-set size for CNN, ViT and CCT at 5M parameters">
+</p>
 
-See [`ML#13_report.pdf`](./ML%2313_report.pdf) for the full report.
+## Question
 
-## Authors
+Convolutional networks hard-wire locality and translation equivariance; Vision Transformers learn spatial structure from data through global self-attention; Compact Convolutional Transformers put a convolutional tokenizer in front of the attention stack. How much does each of these inductive biases matter when data is scarce, once model capacity is held fixed?
 
-- Victor Antonescu — `victor.antonescu@studbocconi.it`
-- Letizia Di Pietro — `letizia.dipietro@studbocconi.it`
-- Martin Lukanov — `martin.lukanov@studbocconi.it`
-- Alexandru Stoica — `alexandru.stoica@studbocconi.it`
-- Antonio Troiano — `antonio.troiano@studbocconi.it`
+## Approach
 
-## Repository structure
-
-```
-.
-├── README.md
-├── requirements.txt
-├── ML#13_report.pdf              # Project report (main text + appendix)
-├── ML#13.ipynb                   # Analysis notebook (loads results, generates all figures)
-├── models/                       # One script per architecture
-│   ├── cnn_small_script.py       # ~0.76 M params
-│   ├── cnn_large_script.py       # ~4.90 M params
-│   ├── vit_small_script.py       # ~0.76 M params
-│   ├── vit_large_script.py       # ~4.98 M params
-│   ├── cct_small_script.py       # ~0.73 M params
-│   └── cct_large_script.py       # ~5.26 M params
-├── training_scripts/
-│   └── train_hpc.py              # Entry point used on HPC to train all models
-├── parameters_aug/               # 30 PyTorch checkpoints (.pt), with augmentation
-├── parameters_noaug/             # 30 PyTorch checkpoints (.pt), without augmentation
-├── resultsxepochs_aug/           # 30 JSON files: per-epoch {epoch, loss, acc} (aug)
-└── resultsxepochs_noaug/         # 30 JSON files: per-epoch {epoch, loss, acc} (no aug)
-```
-
-The `dataset/` folder (CIFAR-10 raw archive, 163 MB) is **excluded** from the repo and downloaded automatically by `torchvision` on first run.
-
-## Setup
-
-```bash
-# Clone
-git clone https://github.com/trozki213/cnn-vit-cct-comparison.git
-cd cnn-vit-cct-comparison
-
-# Create env (optional)
-python -m venv .venv && source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-## Reproducing the analysis
-
-The notebook is decoupled from training: it loads pre-saved JSON logs and `.pt` checkpoints, so all figures and tables can be reproduced on CPU in minutes.
-
-```bash
-jupyter notebook 'ML#13.ipynb'
-```
-
-- **Accuracy tables, learning curves, augmentation gain** → load from `resultsxepochs_*/` JSON files (fast, no model loading)
-- **CKA, linear probes, mean attention distance, ERF saliency** → load `.pt` checkpoints from `parameters_*/` (under a minute per model on CPU)
-
-## Re-training from scratch (optional, requires GPU)
-
-```bash
-python training_scripts/train_hpc.py --model cnn_large --augment   # or --no-augment
-```
-
-This trains the chosen architecture across all five data fractions (10–100%) for 150 epochs each. Available `--model` values: `{cnn,vit,cct}_{small,large}`.
-
-Training hyperparameters (fixed across all 6 models, see report §A.4):
-- Optimizer: AdamW, peak LR 1e-3, weight decay 5e-2
-- Schedule: linear warm-up (~7 epochs) + cosine annealing
-- Batch size 256, 150 epochs, label smoothing ε = 0.1
-- Gradient clipping ‖g‖₂ ≤ 1.0, mixed precision (AMP)
-- Single fixed seed (`torch.manual_seed(0)`)
+- **Six models, two capacity budgets.** A ResNet-style CNN, a ViT and a CCT, each at about 0.75M and about 5M parameters, matched within ±5% at each budget.
+- **Controlled data scaling.** Every model trained from scratch for 150 epochs on nested subsets of CIFAR-10 (10%, 25%, 50%, 75%, 100%), with and without random crop and flip: 60 runs under an identical optimisation protocol.
+- **Representation analysis.** Centred kernel alignment (CKA) within and across architectures, layer-wise linear probes, mean attention distance per head, and gradient-based effective receptive fields.
 
 ## Key findings
 
 - **The CNN dominates the ViT at every data scale.** At ~5M parameters the gap narrows from 25.4 points at 10% of the data to 9.1 points at full data, but never closes.
 - **The CCT is the most parameter-efficient model.** At ~0.75M parameters it closes the gap with the CNN and marginally surpasses it at full data (89.65% vs. 89.27%).
 - **Augmentation helps the CNN most at low data, and the ViT most at high data.** At 10% of the data the CNN gains +12.3 points from random crop and flip versus +3.4 for the ViT; at full data the ranking reverses. The CCT's gain stays flat at 2–4 points, consistent with its convolutional tokenizer already encoding the relevant invariances.
-- **Representations differ structurally.** CKA, linear probes, mean attention distance and gradient-based effective receptive fields show the CCT sitting between the CNN and the ViT, and the ViT building global receptive fields only progressively across blocks.
+- **Representations differ structurally.** The CCT sits between the CNN and the ViT in representational similarity, and the ViT builds global receptive fields only progressively across blocks.
 
-## Headline results
+<p align="center">
+  <img src="assets/augmentation_gain.png" width="640" alt="Augmentation gain in percentage points per model and data fraction">
+</p>
 
-Final test accuracy at epoch 150, with augmentation:
+## Results
+
+Test accuracy (%) after 150 epochs, with augmentation:
 
 | Model | 10% | 25% | 50% | 75% | 100% |
 |---|---:|---:|---:|---:|---:|
-| CNN_large | 79.80 | 88.57 | 92.18 | 93.94 | **94.91** |
-| ViT_large | 54.40 | 68.28 | 77.53 | 82.43 | 85.80 |
-| CCT_large | 70.47 | 81.13 | 86.55 | 89.36 | 90.84 |
-| CNN_small | 77.40 | 83.41 | 87.07 | 88.28 | 89.27 |
-| ViT_small | 53.73 | 65.52 | 74.08 | 79.58 | 82.60 |
-| CCT_small | 68.11 | 79.19 | 84.90 | 87.62 | **89.65** |
+| CNN, 5M | 79.80 | 88.57 | 92.18 | 93.94 | **94.91** |
+| ViT, 5M | 54.40 | 68.28 | 77.53 | 82.43 | 85.80 |
+| CCT, 5M | 70.47 | 81.13 | 86.55 | 89.36 | 90.84 |
+| CNN, 0.75M | 77.40 | 83.41 | 87.07 | 88.28 | 89.27 |
+| ViT, 0.75M | 53.73 | 65.52 | 74.08 | 79.58 | 82.60 |
+| CCT, 0.75M | 68.11 | 79.19 | 84.90 | 87.62 | **89.65** |
 
-Full numerical results and ablations in the [report](./ML%2313_report.pdf).
+Results without augmentation and all ablations are in the [report](report.pdf).
+
+## Repository structure
+
+```
+.
+├── analysis.ipynb          Analysis notebook: loads the saved results and produces every figure and table
+├── report.pdf              Project report (main text and appendix)
+├── models/                 One script per architecture ({cnn,vit,cct}_{small,large}_script.py)
+├── training_scripts/
+│   └── train_hpc.py        Training entry point used on the GPU cluster
+├── parameters_aug/         30 trained checkpoints (.pt), with augmentation
+├── parameters_noaug/       30 trained checkpoints (.pt), without augmentation
+├── resultsxepochs_aug/     Per-epoch loss and test accuracy (JSON), with augmentation
+├── resultsxepochs_noaug/   Per-epoch loss and test accuracy (JSON), without augmentation
+└── assets/                 Figures used in this README
+```
+
+CIFAR-10 is not stored in the repository; `torchvision` downloads it on first use.
+
+## Reproducing the analysis
+
+```bash
+git clone https://github.com/trozki213/cnn-vit-cct-comparison.git
+cd cnn-vit-cct-comparison
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+jupyter notebook analysis.ipynb
+```
+
+The notebook is decoupled from training: accuracy tables, learning curves and augmentation gains are read from the JSON logs, and CKA, probes, attention distances and receptive fields from the saved checkpoints. Everything runs on a CPU in minutes.
+
+## Retraining from scratch (GPU)
+
+```bash
+python training_scripts/train_hpc.py --model cnn_large --augment     # or --no-augment
+```
+
+This trains one architecture on all five data fractions for 150 epochs each. Valid `--model` values are `{cnn,vit,cct}_{small,large}`. The protocol is identical for all models: AdamW (peak learning rate 1e-3, weight decay 5e-2), linear warm-up then cosine annealing, batch size 256, label smoothing 0.1, gradient clipping at norm 1.0, mixed precision, seed 0.
+
+## Authors
+
+Victor Antonescu, Letizia Di Pietro, Martin Lukanov, Alexandru Stoica, Antonio Troiano (Bocconi University).
