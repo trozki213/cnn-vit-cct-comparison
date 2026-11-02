@@ -23,7 +23,7 @@ See [`ML#13_report.pdf`](./ML%2313_report.pdf) for the full report.
 .
 ├── README.md
 ├── requirements.txt
-├── ML#13_report.pdf              # 17-page report (main + appendix)
+├── ML#13_report.pdf              # Project report (main text + appendix)
 ├── ML#13.ipynb                   # Analysis notebook (loads results, generates all figures)
 ├── models/                       # One script per architecture
 │   ├── cnn_small_script.py       # ~0.76 M params
@@ -46,8 +46,8 @@ The `dataset/` folder (CIFAR-10 raw archive, 163 MB) is **excluded** from the re
 
 ```bash
 # Clone
-git clone <REPO_URL>
-cd <REPO_NAME>
+git clone https://github.com/trozki213/cnn-vit-cct-comparison.git
+cd cnn-vit-cct-comparison
 
 # Create env (optional)
 python -m venv .venv && source .venv/bin/activate
@@ -81,6 +81,13 @@ Training hyperparameters (fixed across all 6 models, see report §A.4):
 - Batch size 256, 150 epochs, label smoothing ε = 0.1
 - Gradient clipping ‖g‖₂ ≤ 1.0, mixed precision (AMP)
 - Single fixed seed (`torch.manual_seed(0)`)
+
+## Key findings
+
+- **The CNN dominates the ViT at every data scale.** At ~5M parameters the gap narrows from 25.4 points at 10% of the data to 9.1 points at full data, but never closes.
+- **The CCT is the most parameter-efficient model.** At ~0.75M parameters it closes the gap with the CNN and marginally surpasses it at full data (89.65% vs. 89.27%).
+- **Augmentation helps the CNN most at low data, and the ViT most at high data.** At 10% of the data the CNN gains +12.3 points from random crop and flip versus +3.4 for the ViT; at full data the ranking reverses. The CCT's gain stays flat at 2–4 points, consistent with its convolutional tokenizer already encoding the relevant invariances.
+- **Representations differ structurally.** CKA, linear probes, mean attention distance and gradient-based effective receptive fields show the CCT sitting between the CNN and the ViT, and the ViT building global receptive fields only progressively across blocks.
 
 ## Headline results
 
