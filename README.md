@@ -85,3 +85,4 @@ This trains one architecture on all five data fractions for 150 epochs each. Val
 ## Authors
 
 Victor Antonescu, Letizia Di Pietro, Martin Lukanov, Alexandru Stoica, Antonio Troiano (Bocconi University).
+
